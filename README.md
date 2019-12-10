@@ -1,0 +1,2 @@
+# corsair
+CORS-ignoring proxy
