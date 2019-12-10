@@ -3,6 +3,8 @@ name = "corsair"
 version = "0.0.0-rc1"
 authors = ["Brian Mason"]
 
+[dependencies]
+clap = "2.33.0"
 
 [[bin]]
 name = "corsair"
