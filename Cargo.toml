@@ -1,0 +1,10 @@
+[package]
+name = "corsair"
+version = "0.0.0-rc1"
+authors = ["Brian Mason"]
+
+
+[[bin]]
+name = "corsair"
+path = "src/main.rs"
+
