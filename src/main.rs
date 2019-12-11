@@ -122,12 +122,17 @@ impl Service for Proxy {
         let mut client_req = map_request(req);
 
 
-        let url = format!(
-            "http://{}{}?{}",
+        let base_url = format!(
+            "http://{}{}",
             self.proxy_addr,
             client_req.uri().path(),
-            client_req.uri().query().unwrap_or("")
+            // client_req.uri().query().unwrap_or("")
         );
+
+        let url = match client_req.uri().query() {
+            Some(qs) => format!("{}?{}", base_url, qs),
+            None => base_url
+        };
 
         println!("{}", url);
         let uri = Uri::from_str(&url).expect("Failed to parse url");
@@ -165,8 +170,11 @@ fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
     };
 
     println!("{}", addr);
-    let http = Http::new();
-    http.bind_connection(&handle, socket, addr, service);
+    let http: Http = Http::new();
+    let conn = http.serve_connection(socket, service);
+    let fut = conn.map_err(|e| eprintln!("server connection error: {}", e));
+
+    handle.spawn(fut);
 }
 
 pub fn filter_frontend_request_headers(headers: &Headers) -> Headers {
