@@ -1,17 +1,25 @@
 extern crate clap;
 extern crate futures;
+extern crate hyper;
 extern crate log;
 extern crate net2;
 extern crate tokio_core;
 
 
 use clap::{Arg, App};
-use futures::stream::Stream;
+use futures::{Future, Stream};
+use hyper::{Body, Client, Headers};
+use hyper::client::{self, HttpConnector, Service};
+use hyper::header;
+use hyper::server::{self, Http};
+use hyper::Uri;
 use net2::TcpBuilder;
 use std::io;
 use std::net::SocketAddr;
+use std::str::FromStr;
 use tokio_core::reactor::{Core, Handle};
 use tokio_core::net::{TcpListener, TcpStream};
+
 
 fn main() {
     let matches = get_command_line_matches();
@@ -29,8 +37,8 @@ fn main() {
     let listener = setup_listener(listen_ip, &handle).expect("Failed to setup listener");
 
     let clients = listener.incoming();
-    let srv = clients.for_each(move |(socket, addr)| {
-        proxy(socket, addr, &handle);
+    let srv = clients.for_each(move |(socket, _)| {
+        proxy(socket, proxy_ip, &handle);
 
         Ok(())
     });
@@ -72,7 +80,118 @@ fn setup_listener(addr: SocketAddr, handle: &Handle) -> io::Result<TcpListener> 
     Ok(listener)
 }
 
+fn map_request(req: server::Request) -> client::Request {
+    let mut headers = filter_frontend_request_headers(req.headers());
+
+    // TODO fix clone
+    let mut r = client::Request::new(req.method().clone(), req.uri().clone());
+    r.headers_mut().extend(headers.iter());
+    r.set_body(req.body());
+    r
+}
+
+fn map_response(res: client::Response) -> server::Response {
+    let mut r = server::Response::new().with_status(res.status());
+
+    // let headers = filter_backend_response_headers(res.headers());
+    // r.headers_mut().extend(headers.iter());
+
+    r.set_body(res.body());
+    r
+}
+
+struct Proxy {
+    // client: Client<TimeoutConnector<HttpsConnector<HttpConnector>>, Body>,
+    client: Client<HttpConnector, Body>,
+    proxy_addr: std::net::SocketAddr,
+}
+
+impl Service for Proxy {
+    type Request = server::Request;
+    type Response = server::Response;
+    type Error = hyper::Error;
+    type Future = Box<Future<Item = server::Response, Error = Self::Error>>;
+
+    fn call(&self, req: server::Request) -> Self::Future {
+        println!("Method: {}", req.method());
+
+        let mut client_req = map_request(req);
+
+
+        let url = format!(
+            "http://{}{}?{}",
+            self.proxy_addr,
+            client_req.uri().path(),
+            client_req.uri().query().unwrap_or("")
+        );
+
+        println!("{}", url);
+        let uri = Uri::from_str(&url).expect("Failed to parse url");
+        client_req.set_uri(uri);
+
+        // self.client.get(client_req.uri().clone());
+        let backend = self.client.call(client_req).then(move |resp| match resp {
+            Ok(resp) => {
+                // debug!("Response: {}", res.status());
+                // debug!("Headers: \n{}", res.headers());
+
+                let server_response = map_response(resp);
+
+                ::futures::finished(server_response)
+            }
+            Err(e) => {
+                // error!("Error connecting to backend: {:?}", e);
+                ::futures::failed(e)
+            }
+        });
+
+        Box::new(backend)
+    }
+}
+
 fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
-    println!("Proxying");
     socket.set_nodelay(true).unwrap();
+    let client = Client::configure()
+        // .connector(tm)
+        .build(&handle);
+
+    let service = Proxy {
+        client: client,
+        proxy_addr: addr,
+    };
+
+    println!("{}", addr);
+    let http = Http::new();
+    http.bind_connection(&handle, socket, addr, service);
+}
+
+pub fn filter_frontend_request_headers(headers: &Headers) -> Headers {
+
+    let mut h = headers.clone();
+
+    headers.get::<header::Connection>().and_then(|c| {
+        for c_h in &c.0 {
+            match c_h {
+                &header::ConnectionOption::Close => {
+                    let _ = h.remove_raw("Close");
+                }
+
+                &header::ConnectionOption::KeepAlive => {
+                    let _ = h.remove_raw("Keep-Alive");
+                }
+
+                &header::ConnectionOption::ConnectionHeader(ref o) => {
+                    let _ = h.remove_raw(&o);
+                }
+            }
+        }
+
+        Some(())
+    });
+
+    let _ = h.remove::<header::Connection>();
+    let _ = h.remove::<header::TransferEncoding>();
+    let _ = h.remove::<header::Upgrade>();
+
+    h
 }
