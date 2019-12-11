@@ -7,11 +7,12 @@ extern crate log;
 extern crate net2;
 extern crate tokio_core;
 
+mod fastforward;
 
 use clap::{Arg, App};
 use futures::{Future, Stream};
-use hyper::{Body, Client, Headers};
-use hyper::client::{self, HttpConnector, Service};
+use hyper::{Client, Headers};
+use hyper::client::{self, Service};
 use hyper::header;
 use hyper::server::{self, Http};
 use hyper::Uri;
@@ -22,8 +23,11 @@ use std::str::FromStr;
 use tokio_core::reactor::{Core, Handle};
 use tokio_core::net::{TcpListener, TcpStream};
 
+use fastforward::Proxy;
+
 
 header! { (KeepAlive, "Keep-Alive") => [String] }
+
 
 fn main() {
     let matches = get_command_line_matches();
@@ -35,6 +39,8 @@ fn main() {
 
     println!("{}", listen_ip_str);
     println!("{}", proxy_ip_str);
+
+    // let clients = fastforward::new(listen_ip, proxy_ip);
 
     let mut core = Core::new().unwrap();
     let handle = core.handle();
@@ -73,6 +79,25 @@ fn get_command_line_matches() -> clap::ArgMatches<'static> {
         .get_matches();
 }
 
+fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
+    socket.set_nodelay(true).unwrap();
+    let client = Client::configure()
+        // .connector(tm)
+        .build(&handle);
+
+    let service = Proxy {
+        client: client,
+        proxy_addr: addr,
+    };
+
+    println!("{}", addr);
+    let http: Http = Http::new();
+    let conn = http.serve_connection(socket, service);
+    let fut = conn.map_err(|e| eprintln!("server connection error: {}", e));
+
+    handle.spawn(fut);
+}
+
 fn setup_listener(addr: SocketAddr, handle: &Handle) -> io::Result<TcpListener> {
     let listener = TcpBuilder::new_v4()?;
     // listener.reuse_address(true)?;
@@ -104,11 +129,6 @@ fn map_response(res: client::Response) -> server::Response {
     r
 }
 
-struct Proxy {
-    // client: Client<TimeoutConnector<HttpsConnector<HttpConnector>>, Body>,
-    client: Client<HttpConnector, Body>,
-    proxy_addr: std::net::SocketAddr,
-}
 
 impl Service for Proxy {
     type Request = server::Request;
@@ -158,26 +178,7 @@ impl Service for Proxy {
     }
 }
 
-fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
-    socket.set_nodelay(true).unwrap();
-    let client = Client::configure()
-        // .connector(tm)
-        .build(&handle);
-
-    let service = Proxy {
-        client: client,
-        proxy_addr: addr,
-    };
-
-    println!("{}", addr);
-    let http: Http = Http::new();
-    let conn = http.serve_connection(socket, service);
-    let fut = conn.map_err(|e| eprintln!("server connection error: {}", e));
-
-    handle.spawn(fut);
-}
-
-pub fn filter_frontend_request_headers(headers: &Headers) -> Headers {
+fn filter_frontend_request_headers(headers: &Headers) -> Headers {
 
     let mut h = headers.clone();
     headers.get::<header::Connection>().and_then(|c| {
