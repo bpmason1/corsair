@@ -1,4 +1,4 @@
-use futures::Future;
+use futures::{Future, Stream};
 use hyper::Body;
 use hyper::Client;
 use hyper::client::{self, HttpConnector, Service};
@@ -6,10 +6,12 @@ use hyper::header;
 use hyper::Headers;
 use hyper::server::{self, Http};
 use hyper::Uri;
+use net2::TcpBuilder;
+use std::io;
 use std::net::SocketAddr;
 use std::str::FromStr;
-use tokio_core::reactor::Handle;
-use tokio_core::net::TcpStream;
+use tokio_core::reactor::{Core, Handle};
+use tokio_core::net::{TcpStream, TcpListener};
 
 
 header! { (KeepAlive, "Keep-Alive") => [String] }
@@ -19,8 +21,22 @@ struct Proxy {
     pub proxy_addr: SocketAddr,
 }
 
+pub fn proxy(listen_addr: SocketAddr, proxy_addr: SocketAddr) {
+    let mut core = Core::new().unwrap();
+    let handle = core.handle();
+    let listener = setup_listener(listen_addr, &handle).expect("Failed to setup listener");
 
-pub fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
+    let clients = listener.incoming();
+    let srv = clients.for_each(move |(socket, _)| {
+        _proxy(socket, proxy_addr, &handle);
+
+        Ok(())
+    });
+
+    core.run(srv).expect("Server failed");
+}
+
+fn _proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
     socket.set_nodelay(true).unwrap();
     let client = Client::configure()
         // .connector(tm)
@@ -37,6 +53,17 @@ pub fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
     let fut = conn.map_err(|e| eprintln!("server connection error: {}", e));
 
     handle.spawn(fut);
+}
+
+fn setup_listener(addr: SocketAddr, handle: &Handle) -> io::Result<TcpListener> {
+    let listener = TcpBuilder::new_v4()?;
+    // listener.reuse_address(true)?;
+    // listener.reuse_port(true)?;
+    let listener = listener.bind(&addr)?;
+    let listener = listener.listen(128)?;
+    let listener = TcpListener::from_listener(listener, &addr, &handle)?;
+
+    Ok(listener)
 }
 
 impl Service for Proxy {
@@ -110,33 +137,33 @@ fn map_response(res: client::Response) -> server::Response {
 
 fn filter_frontend_request_headers(headers: &Headers) -> Headers {
 
-    let mut h = headers.clone();
+    let mut filtered_headers = headers.clone();
     headers.get::<header::Connection>().and_then(|c| {
         for c_h in &c.0 {
 
             match c_h {
                 &header::ConnectionOption::Close => {
-                    let _ = h.remove_raw("Close");
+                    let _ = filtered_headers.remove_raw("Close");
                 }
 
                 &header::ConnectionOption::KeepAlive => {
-                    let _ = h.remove::<KeepAlive>(); //_raw("Keep-Alive");
+                    let _ = filtered_headers.remove::<KeepAlive>(); //_raw("Keep-Alive");
                 }
 
                 &header::ConnectionOption::ConnectionHeader(ref o) => {
-                    let _ = h.remove_raw(&o);
+                    let _ = filtered_headers.remove_raw(&o);
                 }
             }
         }
 
-        Some(())
+        Some(c)
     });
 
-    let _ = h.remove::<header::Connection>();
-    let _ = h.remove::<header::TransferEncoding>();
-    let _ = h.remove::<header::Upgrade>();
+    let _ = filtered_headers.remove::<header::Connection>();
+    let _ = filtered_headers.remove::<header::TransferEncoding>();
+    let _ = filtered_headers.remove::<header::Upgrade>();
 
-    h
+    filtered_headers
 }
 
 
@@ -149,14 +176,13 @@ fn test_filter_frontend_request_headers() {
     header! { (Bar, "Bar") => [String] }
 
     let header_vec = vec![
-        ("TE", "gzip"),
         ("Transfer-Encoding", "chunked"),
         ("Host", "example.net"),
         ("Connection", "Keep-Alive, Foo"),
         ("Bar", "abc"),
         ("Foo", "def"),
         ("Keep-Alive", "timeout=30"),
-        ("Upgrade", "HTTP/2.0, SHTTP/1.3, IRC/6.9, RTA/x11"),
+        ("Upgrade", "HTTP/2.0, IRC/6.9, RTA/x11, SHTTP/1.3"),
     ];
 
     let mut headers = Headers::new();

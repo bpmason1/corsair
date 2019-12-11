@@ -10,14 +10,8 @@ extern crate tokio_core;
 mod fastforward;
 
 use clap::{Arg, App};
-use futures::Stream;
-use net2::TcpBuilder;
-use std::io;
-use std::net::SocketAddr;
-use tokio_core::reactor::{Core, Handle};
-use tokio_core::net::TcpListener;
-
 use fastforward::proxy;
+use std::net::SocketAddr;
 
 
 fn main() {
@@ -28,21 +22,7 @@ fn main() {
     let proxy_ip_str = matches.value_of("proxy-ip").expect("proxy-ip could not be read");
     let proxy_ip = proxy_ip_str.parse::<SocketAddr>().unwrap();
 
-    println!("{}", listen_ip_str);
-    println!("{}", proxy_ip_str);
-
-    let mut core = Core::new().unwrap();
-    let handle = core.handle();
-    let listener = setup_listener(listen_ip, &handle).expect("Failed to setup listener");
-
-    let clients = listener.incoming();
-    let srv = clients.for_each(move |(socket, _)| {
-        proxy(socket, proxy_ip, &handle);
-
-        Ok(())
-    });
-
-    core.run(srv).expect("Server failed");
+    proxy(listen_ip, proxy_ip)
 }
 
 fn get_command_line_matches() -> clap::ArgMatches<'static> {
@@ -62,19 +42,8 @@ fn get_command_line_matches() -> clap::ArgMatches<'static> {
                 .value_name("proxy-ip")
                 .takes_value(true)
                 .help(
-                    "address where the application proxies incoming messages. example: 0.0.0.0:8000",
+                    "address where the application proxies incoming messages. example: 127.0.0.1:8888",
                 ),
         )
         .get_matches();
-}
-
-fn setup_listener(addr: SocketAddr, handle: &Handle) -> io::Result<TcpListener> {
-    let listener = TcpBuilder::new_v4()?;
-    // listener.reuse_address(true)?;
-    // listener.reuse_port(true)?;
-    let listener = listener.bind(&addr)?;
-    let listener = listener.listen(128)?;
-    let listener = TcpListener::from_listener(listener, &addr, &handle)?;
-
-    Ok(listener)
 }
