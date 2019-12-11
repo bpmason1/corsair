@@ -1,6 +1,8 @@
+#[macro_use]
+extern crate hyper;
+
 extern crate clap;
 extern crate futures;
-extern crate hyper;
 extern crate log;
 extern crate net2;
 extern crate tokio_core;
@@ -20,6 +22,8 @@ use std::str::FromStr;
 use tokio_core::reactor::{Core, Handle};
 use tokio_core::net::{TcpListener, TcpStream};
 
+
+header! { (KeepAlive, "Keep-Alive") => [String] }
 
 fn main() {
     let matches = get_command_line_matches();
@@ -81,7 +85,7 @@ fn setup_listener(addr: SocketAddr, handle: &Handle) -> io::Result<TcpListener> 
 }
 
 fn map_request(req: server::Request) -> client::Request {
-    let mut headers = filter_frontend_request_headers(req.headers());
+    let headers = filter_frontend_request_headers(req.headers());
 
     // TODO fix clone
     let mut r = client::Request::new(req.method().clone(), req.uri().clone());
@@ -168,16 +172,16 @@ fn proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
 pub fn filter_frontend_request_headers(headers: &Headers) -> Headers {
 
     let mut h = headers.clone();
-
     headers.get::<header::Connection>().and_then(|c| {
         for c_h in &c.0 {
+
             match c_h {
                 &header::ConnectionOption::Close => {
                     let _ = h.remove_raw("Close");
                 }
 
                 &header::ConnectionOption::KeepAlive => {
-                    let _ = h.remove_raw("Keep-Alive");
+                    let _ = h.remove::<KeepAlive>(); //_raw("Keep-Alive");
                 }
 
                 &header::ConnectionOption::ConnectionHeader(ref o) => {
@@ -194,4 +198,41 @@ pub fn filter_frontend_request_headers(headers: &Headers) -> Headers {
     let _ = h.remove::<header::Upgrade>();
 
     h
+}
+
+
+#[test]
+/// Per RFC 2616 Section 13.5.1 - MUST remove hop-by-hop headers
+/// Per RFC 7230 Section 6.1 - MUST remove Connection and Connection option headers
+fn test_filter_frontend_request_headers() {
+    // defining these here only to let me assert
+    header! { (Foo, "Foo") => [String] }
+    header! { (Bar, "Bar") => [String] }
+
+    let header_vec = vec![
+        ("TE", "gzip"),
+        ("Transfer-Encoding", "chunked"),
+        ("Host", "example.net"),
+        ("Connection", "Keep-Alive, Foo"),
+        ("Bar", "abc"),
+        ("Foo", "def"),
+        ("Keep-Alive", "timeout=30"),
+        ("Upgrade", "HTTP/2.0, SHTTP/1.3, IRC/6.9, RTA/x11"),
+    ];
+
+    let mut headers = Headers::new();
+
+    for (name, value) in header_vec {
+        headers.set_raw(name, value);
+    }
+
+    let given = filter_frontend_request_headers(&headers);
+
+    assert_eq!(false, given.has::<header::TransferEncoding>());
+    assert_eq!(true, given.has::<header::Host>());
+    assert_eq!(false, given.has::<header::Connection>());
+    assert_eq!(false, given.has::<Foo>());
+    assert_eq!(true, given.has::<Bar>());
+    assert_eq!(false, given.has::<KeepAlive>());
+    assert_eq!(false, given.has::<header::Upgrade>());
 }
