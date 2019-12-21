@@ -7,10 +7,10 @@ extern crate log;
 extern crate net2;
 extern crate tokio_core;
 
-mod fastforward;
+mod ff;
 
 use clap::{Arg, App};
-use fastforward::proxy;
+use ff::proxy;
 use std::net::SocketAddr;
 
 
