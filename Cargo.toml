@@ -5,12 +5,9 @@ authors = ["Brian Mason"]
 
 [dependencies]
 clap = "2.33.0"
-futures = "0.1.29"
-hyper = "0.11.0"
-log = "0.3.0"
-net2 = "0.2.33"
-tokio-core = "0.1.17"
+fastforward = { path = "./fastforward" }
 
 [[bin]]
 name = "corsair"
 path = "src/main.rs"
+

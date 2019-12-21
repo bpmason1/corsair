@@ -1,3 +1,11 @@
+#[macro_use]
+extern crate hyper;
+
+extern crate futures;
+extern crate log;
+extern crate net2;
+extern crate tokio_core;
+
 use futures::{Future, Stream};
 use hyper::Body;
 use hyper::Client;

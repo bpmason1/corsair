@@ -1,16 +1,8 @@
-#[macro_use]
-extern crate hyper;
-
 extern crate clap;
-extern crate futures;
-extern crate log;
-extern crate net2;
-extern crate tokio_core;
-
-mod ff;
+extern crate fastforward;
 
 use clap::{Arg, App};
-use ff::proxy;
+use fastforward::proxy;
 use std::net::SocketAddr;
 
 
