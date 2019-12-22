@@ -6,15 +6,13 @@ use hyper::Client;
 use hyper::client::{self, HttpConnector, Service};
 use hyper::server::{self, Http};
 use hyper::Uri;
-use net2::TcpBuilder;
-use std::io;
 use std::net::SocketAddr;
 use std::str::FromStr;
 use tokio_core::reactor::{Core, Handle};
-use tokio_core::net::{TcpStream, TcpListener};
+use tokio_core::net::TcpStream;
 
 use super::filters::filter_request_headers;
-
+use super::setup_listener;
 
 struct Proxy {
     pub client: Client<HttpConnector, Body>,
@@ -53,17 +51,6 @@ fn _proxy(socket: TcpStream, addr: SocketAddr, handle: &Handle) {
     let fut = conn.map_err(|e| eprintln!("server connection error: {}", e));
 
     handle.spawn(fut);
-}
-
-fn setup_listener(addr: SocketAddr, handle: &Handle) -> io::Result<TcpListener> {
-    let listener = TcpBuilder::new_v4()?;
-    // listener.reuse_address(true)?;
-    // listener.reuse_port(true)?;
-    let listener = listener.bind(&addr)?;
-    let listener = listener.listen(128)?;
-    let listener = TcpListener::from_listener(listener, &addr, &handle)?;
-
-    Ok(listener)
 }
 
 impl Service for Proxy {
