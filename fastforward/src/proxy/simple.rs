@@ -1,8 +1,7 @@
 // mod filters;
 
 use futures::{Future, Stream};
-use hyper::Body;
-use hyper::Client;
+use hyper::{Body, Client};
 use hyper::client::{self, HttpConnector, Service};
 use hyper::server::{self, Http};
 use hyper::Uri;

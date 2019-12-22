@@ -9,3 +9,4 @@ extern crate tokio_core;
 mod proxy;
 
 pub use proxy::simple_proxy;
+pub use proxy::generic_proxy;
