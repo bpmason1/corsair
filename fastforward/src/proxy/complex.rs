@@ -9,12 +9,14 @@ use tokio_core::reactor::{Core, Handle};
 use super::setup_listener;
 use super::filters::filter_request_headers;
 
+type Director = Fn(& Request);
+// trait Director {
+//     pub fn call(&mut Request);
+// }
 
-type Director = fn(&mut Request);
-
-struct Proxy {
+struct Proxy<'p> {
     pub client: Client<HttpConnector, Body>,
-    pub director: Director,
+    pub director: &'p Director,
 }
 
 // trait ProxyRule {}
@@ -27,14 +29,14 @@ struct Proxy {
 //     generic_proxy(listen_addr, director)
 // }
 
-pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
+pub fn generic_proxy(listen_addr: SocketAddr, director: &'static Director)
+ {
     let mut core = Core::new().unwrap();
     let handle: Handle = core.handle();
     let listener = setup_listener(listen_addr, &handle).expect("Failed to setup listener");
 
     let clients = listener.incoming();
     let srv = clients.for_each(move |(socket, _)| {
-        // _proxy(socket, proxy_addr, &handle);
         _proxy(socket, &handle, director);
         Ok(())
     });
@@ -42,7 +44,7 @@ pub fn generic_proxy(listen_addr: SocketAddr, director: Director) {
     core.run(srv).expect("Server failed");
 }
 
-fn _proxy(socket: TcpStream, handle: &Handle, director: Director) {
+fn _proxy(socket: TcpStream, handle: &Handle, director: &'static Director) {
     socket.set_nodelay(true).unwrap();
     let client = Client::configure()
         // .connector(tm)
@@ -53,21 +55,21 @@ fn _proxy(socket: TcpStream, handle: &Handle, director: Director) {
         director: director,
     };
 
-    // println!("{}", addr);
+    // // println!("{}", addr);
     let http: Http = Http::new();
     let conn = http.serve_connection(socket, service);
     let fut = conn.map_err(|e| eprintln!("server connection error: {}", e));
 
-    handle.spawn(fut);
+    // handle.spawn(fut);
 }
 
-impl Service for Proxy {
+impl<'s> Service for Proxy<'s> {
     type Request = server::Request;
     type Response = server::Response;
     type Error = hyper::Error;
     type Future = Box<Future<Item = server::Response, Error = Self::Error>>;
 
-    fn call(&self, mut req: server::Request) -> Self::Future {
+    fn call<'p>(&self, mut req: server::Request) -> Self::Future {
         println!("Method: {}", req.method());
 
         let headers = filter_request_headers(req.headers());
