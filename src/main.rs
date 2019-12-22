@@ -2,7 +2,7 @@ extern crate clap;
 extern crate fastforward;
 
 use clap::{Arg, App};
-use fastforward::proxy;
+use fastforward::simple_proxy;
 use std::net::SocketAddr;
 
 
@@ -14,7 +14,7 @@ fn main() {
     let proxy_ip_str = matches.value_of("proxy-ip").expect("proxy-ip could not be read");
     let proxy_ip = proxy_ip_str.parse::<SocketAddr>().unwrap();
 
-    proxy(listen_ip, proxy_ip)
+    simple_proxy(listen_ip, proxy_ip)
 }
 
 fn get_command_line_matches() -> clap::ArgMatches<'static> {
