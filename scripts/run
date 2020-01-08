@@ -1,0 +1,23 @@
+#! /bin/bash
+
+set -e
+
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+if [ -z $LISTEN_ADDR ]; then
+    echo "ERROR - unset environment variable LISTEN_ADDR"
+    exit 1
+fi
+
+if [ -z $PROXY_ADDR ]; then
+    echo "ERROR - unset environment variable PROXY_ADDR"
+    exit 1
+fi
+
+SCRIPTS_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ROOT_DIR=$(cd $SCRIPTS_DIR/.. && pwd)
+
+# this is convenient for running the application in a docker container
+./corsair --listen-ip=${LISTEN_ADDR} --proxy-ip=${PROXY_ADDR} --permissive      
+
