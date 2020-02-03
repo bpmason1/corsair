@@ -1,11 +1,11 @@
 [package]
 name = "corsair"
-version = "0.0.0-rc1"
+version = "0.0.1"
 authors = ["Brian Mason"]
 
 [dependencies]
 clap = "2.33.0"
-fastforward = { git  = "https://github.com/bpmason1/fastforward" }
+fastforward = { git  = "https://github.com/bpmason1/fastforward", tag="0.0.2" }
 http = "0.2.0"
 term = "0.6.1"
 
