@@ -17,13 +17,25 @@ use std::net::SocketAddr;
 fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> { 
     match req.method() {
         &Method::OPTIONS => {
+            // println!("{:?}", req);
+
             let body = Vec::new();
-            let resp = Response::builder()
+            let mut resp = Response::builder()
                         .status(StatusCode::NO_CONTENT)
                         .body(body).unwrap();
+
+            let resp_headers = resp.headers_mut();
+            let allowed_addresses = HeaderValue::from_str("*").unwrap();
+            let allowed_headers = HeaderValue::from_str("*").unwrap();
+            let allowed_methods = HeaderValue::from_str("GET, POST, PATCH, PUT, DELETE, OPTIONS").unwrap();
+            resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, allowed_addresses);
+            resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_HEADERS, allowed_headers);
+            resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_METHODS, allowed_methods);
+            // println!("{:?}", resp);
             Some(resp)
         },
         _ => {
+            println!("This was not an option request");
             let matches = get_command_line_matches();
             let proxy_addr_str = matches.value_of("proxy-ip").expect("proxy-ip could not be read");
 

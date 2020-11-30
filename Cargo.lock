@@ -199,9 +199,9 @@ checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 
 [[package]]
 name = "fastforward"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05c54b2583864ca989203e2ce4d8b9baae44ed31630abeb91dd336d59afedde8"
+checksum = "220741f42bdf001f58840e7a34ab381b733fc3ea2fd877e3031c0df838789c23"
 dependencies = [
  "flask",
  "http",
@@ -211,9 +211,9 @@ dependencies = [
 
 [[package]]
 name = "flask"
-version = "2.0.1"
+version = "2.0.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d056b4a4796d1cc7355f8c3d6e5523da63d74cd381928295b6470714f62def8c"
+checksum = "872502f44e332beb7d73f1123c98d12376e2702d25ea22fdc0c6e39665ae4ac5"
 dependencies = [
  "http",
  "nom",
@@ -329,9 +329,9 @@ dependencies = [
 
 [[package]]
 name = "num_cpus"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "46203554f085ff89c235cd12f7075f3233af9b11ed7c9e16dfe2560d03313ce6"
+checksum = "05499f3756671c15885fee9034446956fff3f243d6077b91e5767df161f766b3"
 dependencies = [
  "hermit-abi",
  "libc",
