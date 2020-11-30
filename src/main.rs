@@ -14,7 +14,7 @@ use http::{
 use std::net::SocketAddr;
 
 
-fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> { 
+fn req_transform(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> { 
     match req.method() {
         &Method::OPTIONS => {
             // println!("{:?}", req);
@@ -50,6 +50,16 @@ fn my_director(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> {
     }
 }
 
+fn resp_transform(resp: &mut http::Response<Vec<u8>>) { 
+    let allowed_addresses = HeaderValue::from_str("*").unwrap();
+    let allowed_headers = HeaderValue::from_str("*").unwrap();
+    let allowed_methods = HeaderValue::from_str("GET, POST, PATCH, PUT, DELETE, OPTIONS").unwrap();
+
+    let resp_headers = resp.headers_mut();
+    resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_ORIGIN, allowed_addresses);
+    resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_HEADERS, allowed_headers);
+    resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_METHODS, allowed_methods);
+}
 
 fn main() {
     let mut terminal = term::stdout().unwrap();
@@ -61,7 +71,7 @@ fn main() {
     // This is to ensure that the "proxy-ip" parameter was passed in
     match matches.value_of("proxy-ip") {
         Some(_) => {
-            generic_proxy(listen_ip, my_director)
+            generic_proxy(listen_ip, req_transform, resp_transform)
         },
         None => {
             terminal.fg(term::color::RED).unwrap();
