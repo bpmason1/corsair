@@ -83,7 +83,7 @@ fn main() {
     
 }
 
-fn get_command_line_matches() -> clap::ArgMatches<'static> {
+fn get_command_line_matches() -> clap::ArgMatches {
     return App::new("corsair")
         .arg(
             Arg::with_name("listen-ip")

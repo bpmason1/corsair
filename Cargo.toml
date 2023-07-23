@@ -4,7 +4,7 @@ version = "0.0.1"
 authors = ["Brian Mason"]
 
 [dependencies]
-clap = "2.33.0"
+clap = "3.2.25"
 # fastforward = { path = "../fastforward" }
 fastforward = "0.5.3"
 http = "0.2.9"
