@@ -2,11 +2,12 @@
 name = "corsair"
 version = "0.0.1"
 authors = ["Brian Mason"]
+edition = "2021"
 
 [dependencies]
 clap = "3.2.25"
-# fastforward = { path = "../fastforward" }
-fastforward = "0.5.3"
+fastforward = { path = "../fastforward" }
+# fastforward = "0.5.3"
 http = "0.2.9"
 term = "0.7.0"
 
