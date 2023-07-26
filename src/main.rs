@@ -3,7 +3,7 @@ extern crate fastforward;
 extern crate http;
 extern crate term;
 
-use clap::{Arg, App};
+use clap::{Arg, Command};
 use fastforward::generic_proxy;
 use http::{
     header::HeaderValue,
@@ -84,7 +84,7 @@ fn main() {
 }
 
 fn get_command_line_matches() -> clap::ArgMatches {
-    return App::new("corsair")
+    return Command::new("corsair")
         .arg(
             Arg::with_name("listen-ip")
                 .long("listen-ip")
