@@ -1,6 +1,7 @@
 extern crate clap;
 extern crate fastforward;
 extern crate http;
+extern crate once_cell;
 extern crate term;
 
 use clap::{Arg, Command};
@@ -11,6 +12,7 @@ use http::{
     Response,
     StatusCode
 };
+use once_cell::sync::Lazy;
 use std::net::SocketAddr;
 
 
@@ -36,8 +38,7 @@ fn req_transform(req: &mut http::Request<Vec<u8>>) -> Option<Response<Vec<u8>>> 
         },
         _ => {
             println!("This was not an option request");
-            let matches = get_command_line_matches();
-            let proxy_addr_str = matches.value_of("proxy-ip").expect("proxy-ip could not be read");
+            let proxy_addr_str = MATCHES.value_of("proxy-ip").expect("proxy-ip could not be read");
 
             let proxy_addr = HeaderValue::from_str(proxy_addr_str).unwrap();
 
@@ -61,15 +62,18 @@ fn resp_transform(resp: &mut http::Response<Vec<u8>>) {
     resp_headers.insert(http::header::ACCESS_CONTROL_ALLOW_METHODS, allowed_methods);
 }
 
+static MATCHES : Lazy<clap::ArgMatches> = Lazy::new( || {
+  get_command_line_matches()
+});
+
 fn main() {
     let mut terminal = term::stdout().unwrap();
 
-    let matches = get_command_line_matches();
-    let listen_ip_str = matches.value_of("listen-ip").expect("listen-ip could not be read");
+    let listen_ip_str = MATCHES.value_of("listen-ip").expect("listen-ip could not be read");
     let listen_ip = listen_ip_str.parse::<SocketAddr>().unwrap();
 
     // This is to ensure that the "proxy-ip" parameter was passed in
-    match matches.value_of("proxy-ip") {
+    match MATCHES.value_of("proxy-ip") {
         Some(_) => {
             generic_proxy(listen_ip, req_transform, resp_transform)
         },

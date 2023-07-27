@@ -9,6 +9,7 @@ clap = "3.2.25"
 fastforward = { path = "../fastforward" }
 # fastforward = "0.5.3"
 http = "0.2.9"
+once_cell = "1.18.0"
 term = "0.7.0"
 
 [[bin]]
