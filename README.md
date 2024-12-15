@@ -1,4 +1,4 @@
-# corsair
+# corsair  (WIP - do not use yet)
 CORS-ignoring proxy
 
 ### run the proxy
